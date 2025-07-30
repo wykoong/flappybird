@@ -6,3 +6,11 @@ The full prompt is as below:
 
   You as a superprogrammer, do build the flappy bird application from scratch, 100% browser base using typescript (if possible).
 
+Revised prompt to ask AI to generate into a single html file.
+
+  You as a superprogrammer, do build the flappy bird application from scratch, 100% browser base using typescript (if possible). The output should be a single HTML file.
+
+
+Second prompt for the readme file.
+
+  Do summarise the above output (except codes) for a readme file.

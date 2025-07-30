@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Flappy Bird - TypeScript</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #70c5ce; }
+    canvas { display: block; margin: 0 auto; background: #70c5ce; }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
+
+  <script type="module">
+    const canvas = document.getElementById("gameCanvas") as HTMLCanvasElement;
+    const ctx = canvas.getContext("2d")!;
+
+    const GRAVITY = 0.5;
+    const JUMP = -8;
+    const PIPE_WIDTH = 50;
+    const PIPE_GAP = 140;
+    const PIPE_INTERVAL = 1500;
+
+    interface Pipe {
+      x: number;
+      height: number;
+      passed: boolean;
+    }
+
+    class Bird {
+      x: number = 80;
+      y: number = canvas.height / 2;
+      velocity: number = 0;
+      radius: number = 15;
+
+      update() {
+        this.velocity += GRAVITY;
+        this.y += this.velocity;
+      }
+
+      jump() {
+        this.velocity = JUMP;
+      }
+
+      draw(ctx: CanvasRenderingContext2D) {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = "yellow";
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      collides(pipe: Pipe): boolean {
+        const inPipeRange = this.x + this.radius > pipe.x && this.x - this.radius < pipe.x + PIPE_WIDTH;
+        const inGap = this.y - this.radius > pipe.height && this.y + this.radius < pipe.height + PIPE_GAP;
+        return inPipeRange && !inGap;
+      }
+
+      outOfBounds(): boolean {
+        return this.y > canvas.height || this.y < 0;
+      }
+    }
+
+    let bird = new Bird();
+    let pipes: Pipe[] = [];
+    let lastPipeTime = 0;
+    let score = 0;
+    let gameOver = false;
+
+    function spawnPipe() {
+      const height = Math.random() * (canvas.height - PIPE_GAP - 100) + 50;
+      pipes.push({ x: canvas.width, height, passed: false });
+    }
+
+    function update(deltaTime: number) {
+      if (gameOver) return;
+
+      bird.update();
+
+      // Spawn pipes
+      if (performance.now() - lastPipeTime > PIPE_INTERVAL) {
+        spawnPipe();
+        lastPipeTime = performance.now();
+      }
+
+      // Update pipes
+      for (const pipe of pipes) {
+        pipe.x -= 2;
+
+        // Score update
+        if (!pipe.passed && pipe.x + PIPE_WIDTH < bird.x) {
+          pipe.passed = true;
+          score++;
+        }
+
+        // Collision check
+        if (bird.collides(pipe)) {
+          gameOver = true;
+        }
+      }
+
+      // Remove off-screen pipes
+      pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
+
+      // Out of bounds check
+      if (bird.outOfBounds()) {
+        gameOver = true;
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Background
+      ctx.fillStyle = "#70c5ce";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Pipes
+      for (const pipe of pipes) {
+        ctx.fillStyle = "green";
+        ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.height);
+        ctx.fillRect(pipe.x, pipe.height + PIPE_GAP, PIPE_WIDTH, canvas.height);
+      }
+
+      // Bird
+      bird.draw(ctx);
+
+      // Score
+      ctx.fillStyle = "white";
+      ctx.font = "32px Arial";
+      ctx.fillText(`Score: ${score}`, 10, 40);
+
+      // Game Over
+      if (gameOver) {
+        ctx.fillStyle = "red";
+        ctx.font = "48px Arial";
+        ctx.fillText("Game Over", 100, canvas.height / 2);
+        ctx.font = "24px Arial";
+        ctx.fillText("Press Space to Restart", 90, canvas.height / 2 + 40);
+      }
+    }
+
+    function loop(timestamp: number) {
+      update(timestamp);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.code === "Space") {
+        if (gameOver) {
+          // Restart
+          bird = new Bird();
+          pipes = [];
+          score = 0;
+          gameOver = false;
+          lastPipeTime = performance.now();
+        } else {
+          bird.jump();
+        }
+      }
+    });
+
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

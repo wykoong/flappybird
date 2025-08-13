@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Bird</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #333;
+        }
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const CANVAS_WIDTH = 288;
+        const CANVAS_HEIGHT = 512;
+        const BIRD_WIDTH = 34;
+        const BIRD_HEIGHT = 24;
+        const PIPE_WIDTH = 52;
+        const PIPE_HEIGHT = 320;
+        const PIPE_GAP = 100;
+        const GRAVITY = 0.25;
+        const FLAP_STRENGTH = -4.6;
+        const PIPE_SPEED = -2;
+
+        class Bird {
+            constructor() {
+                this.x = 50;
+                this.y = 150;
+                this.velocityY = 0;
+            }
+
+            flap() {
+                this.velocityY = FLAP_STRENGTH;
+            }
+
+            update() {
+                this.velocityY += GRAVITY;
+                this.y += this.velocityY;
+            }
+
+            draw(context) {
+                context.fillStyle = 'yellow';
+                context.fillRect(this.x, this.y, BIRD_WIDTH, BIRD_HEIGHT);
+            }
+        }
+
+        class Pipe {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.isPassed = false;
+            }
+
+            update() {
+                this.x += PIPE_SPEED;
+            }
+
+            draw(context) {
+                context.fillStyle = 'green';
+                // Top pipe
+                context.fillRect(this.x, 0, PIPE_WIDTH, this.y - PIPE_GAP / 2);
+                // Bottom pipe
+                context.fillRect(this.x, this.y + PIPE_GAP / 2, PIPE_WIDTH, CANVAS_HEIGHT - (this.y + PIPE_GAP / 2));
+            }
+        }
+
+        class Game {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.context = canvas.getContext('2d');
+                this.bird = new Bird();
+                this.pipes = [];
+                this.score = 0;
+                this.isGameOver = false;
+                this.pipeSpawnTimer = 0;
+                this.setupInput();
+            }
+
+            setupInput() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.code === 'Space') {
+                        this.handleInput();
+                    }
+                });
+                this.canvas.addEventListener('mousedown', () => {
+                    this.handleInput();
+                });
+            }
+
+            handleInput() {
+                if (this.isGameOver) {
+                    this.restart();
+                } else {
+                    this.bird.flap();
+                }
+            }
+
+            restart() {
+                this.bird = new Bird();
+                this.pipes = [];
+                this.score = 0;
+                this.isGameOver = false;
+                this.pipeSpawnTimer = 0;
+                this.gameLoop();
+            }
+
+            spawnPipe() {
+                const gapY = Math.random() * (CANVAS_HEIGHT - 300) + 150;
+                this.pipes.push(new Pipe(CANVAS_WIDTH, gapY));
+            }
+
+            update() {
+                if (this.isGameOver) return;
+
+                this.bird.update();
+
+                // Check for collisions with top/bottom
+                if (this.bird.y + BIRD_HEIGHT > CANVAS_HEIGHT || this.bird.y < 0) {
+                    this.gameOver();
+                }
+
+                // Spawn pipes
+                this.pipeSpawnTimer++;
+                if (this.pipeSpawnTimer > 90) { // spawn pipe every 90 frames
+                    this.spawnPipe();
+                    this.pipeSpawnTimer = 0;
+                }
+
+                // Update pipes and check for collisions
+                for (let i = this.pipes.length - 1; i >= 0; i--) {
+                    const pipe = this.pipes[i];
+                    pipe.update();
+
+                    // Check for collision with bird
+                    if (
+                        this.bird.x < pipe.x + PIPE_WIDTH &&
+                        this.bird.x + BIRD_WIDTH > pipe.x &&
+                        (this.bird.y < pipe.y - PIPE_GAP / 2 || this.bird.y + BIRD_HEIGHT > pipe.y + PIPE_GAP / 2)
+                    ) {
+                        this.gameOver();
+                    }
+
+                    // Check for score
+                    if (pipe.x + PIPE_WIDTH < this.bird.x && !pipe.isPassed) {
+                        this.score++;
+                        pipe.isPassed = true;
+                    }
+
+                    // Remove off-screen pipes
+                    if (pipe.x + PIPE_WIDTH < 0) {
+                        this.pipes.splice(i, 1);
+                    }
+                }
+            }
+
+            draw() {
+                // Clear canvas
+                this.context.fillStyle = '#70c5ce'; // Light blue background
+                this.context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                this.bird.draw(this.context);
+
+                for (const pipe of this.pipes) {
+                    pipe.draw(this.context);
+                }
+
+                // Draw score
+                this.context.fillStyle = 'white';
+                this.context.font = '20px sans-serif';
+                this.context.fillText(`Score: ${this.score}`, 10, 20);
+
+                if (this.isGameOver) {
+                    this.context.fillStyle = 'white';
+                    this.context.font = '40px sans-serif';
+                    this.context.fillText('Game Over', CANVAS_WIDTH / 2 - 100, CANVAS_HEIGHT / 2 - 20);
+                    this.context.font = '20px sans-serif';
+                    this.context.fillText('Press Space to Restart', CANVAS_WIDTH / 2 - 100, CANVAS_HEIGHT / 2 + 20);
+                }
+            }
+
+            gameOver() {
+                this.isGameOver = true;
+            }
+
+            gameLoop() {
+                this.update();
+                this.draw();
+                if (!this.isGameOver) {
+                    requestAnimationFrame(() => this.gameLoop());
+                }
+            }
+
+            start() {
+                this.spawnPipe();
+                this.gameLoop();
+            }
+        }
+
+        window.onload = () => {
+            const canvas = document.getElementById('gameCanvas');
+            if (canvas) {
+                canvas.width = CANVAS_WIDTH;
+                canvas.height = CANVAS_HEIGHT;
+                const game = new Game(canvas);
+                game.start();
+            } else {
+                console.error('Canvas element not found');
+            }
+        };
+    </script>
+</body>
+</html>
